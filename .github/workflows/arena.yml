@@ -1,0 +1,34 @@
+name: arena-run
+on:
+  workflow_dispatch:
+    inputs:
+      model:
+        description: gpt-6-sol or claude-opus-5-5
+        required: true
+        default: gpt-6-sol
+      task:
+        description: task id or "all"
+        required: true
+        default: all
+permissions:
+  contents: write
+jobs:
+  run:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -r requirements.txt && playwright install --with-deps chromium
+      - name: run suite
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: python src/runner.py --model "${{ inputs.model }}" --task "${{ inputs.task }}"
+      - name: commit results
+        run: |
+          git config user.name "arena-bot"
+          git config user.email "arena-bot@users.noreply.github.com"
+          git add results/
+          git diff --cached --quiet || git commit -m "run: ${{ inputs.model }} ${{ inputs.task }} ($(date -u +%Y-%m-%dT%H:%MZ))"
+          git push
